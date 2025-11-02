@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load static %}
 {% block title %}
 {% if chat.chat_type == 'group' %}{{ chat.name }}{% else %}Chat{% endif %} - WhatsApp
 {% endblock %}
@@ -104,23 +104,43 @@
                     {% if message.message_type == 'text' %}
                         <p class="text-gray-800">{{ message.content }}</p>
                     {% elif message.message_type == 'image' %}
-                        <img src="{{ message.media_file.url }}" class="rounded max-w-full mb-2">
+                        {% if message.media_file %}
+                        <img src="{{ message.media_file.url }}" class="rounded max-w-full mb-2" alt="Image">
+                        {% else %}
+                        <img src="{% static 'images/no_media.png' %}" class="rounded max-w-full mb-2" alt="No media">
+                        {% endif %}
                         {% if message.content %}
                         <p class="text-gray-800">{{ message.content }}</p>
                         {% endif %}
                     {% elif message.message_type == 'video' %}
+                        {% if message.media_file %}
                         <video controls class="rounded max-w-full mb-2">
                             <source src="{{ message.media_file.url }}">
                         </video>
+                        {% else %}
+                        <img src="{% static 'images/no_media.png' %}" class="rounded max-w-full mb-2" alt="No media">
+                        {% endif %}
                     {% elif message.message_type == 'audio' %}
+                        {% if message.media_file %}
                         <audio controls class="w-full">
                             <source src="{{ message.media_file.url }}">
                         </audio>
+                        {% else %}
+                        <div class="text-gray-500 text-sm">
+                            <i class="fas fa-volume-mute"></i> Audio unavailable
+                        </div>
+                        {% endif %}
                     {% elif message.message_type == 'document' %}
+                        {% if message.media_file %}
                         <a href="{{ message.media_file.url }}" download class="flex items-center space-x-2 text-blue-600">
                             <i class="fas fa-file"></i>
                             <span>{{ message.media_file.name }}</span>
                         </a>
+                        {% else %}
+                        <div class="text-gray-500 text-sm">
+                            <i class="fas fa-file"></i> Document unavailable
+                        </div>
+                        {% endif %}
                     {% elif message.message_type == 'location' %}
                         <div class="text-blue-600">
                             <i class="fas fa-map-marker-alt"></i>

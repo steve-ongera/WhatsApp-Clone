@@ -132,38 +132,43 @@ def update_privacy_settings(request):
 
 # ==================== Chat List & Search Views ====================
 
+from django.db.models import Max, OuterRef, Subquery
+from django.contrib.auth.decorators import login_required
+from django.db.models import Prefetch
+
 @login_required
 def chat_list_view(request):
-    """Main chat list page"""
-    # Get all chats for the user with latest message
-    chats = Chat.objects.filter(
-        participants=request.user
-    ).annotate(
-        latest_message_time=Max('messages__created_at')
-    ).prefetch_related(
-        'participants',
-        Prefetch('messages', queryset=Message.objects.order_by('-created_at')[:1])
-    ).order_by('-latest_message_time')
-    
-    # Get unread message counts
-    unread_counts = {}
-    for chat in chats:
-        unread = Message.objects.filter(
-            chat=chat
-        ).exclude(
-            sender=request.user
-        ).exclude(
-            receipts__user=request.user,
-            receipts__status='read'
-        ).count()
-        unread_counts[chat.id] = unread
-    
-    context = {
+    latest_message = Message.objects.filter(
+        chat=OuterRef('pk')
+    ).order_by('-created_at')
+
+    chats = (
+        Chat.objects.filter(participants=request.user)
+        .annotate(latest_message_time=Subquery(latest_message.values('created_at')[:1]))
+        .prefetch_related(
+            'participants',
+            Prefetch(
+                'messages',
+                queryset=Message.objects.filter(
+                    id__in=Subquery(latest_message.values('id')[:1])
+                )
+            )
+        )
+        .order_by('-latest_message_time')
+    )
+
+    unread_counts = {
+        chat.id: Message.objects.filter(chat=chat)
+        .exclude(sender=request.user)
+        .exclude(receipts__user=request.user, receipts__status='read')
+        .count()
+        for chat in chats
+    }
+
+    return render(request, 'chat_list.html', {
         'chats': chats,
         'unread_counts': unread_counts,
-    }
-    
-    return render(request, 'chat_list.html', context)
+    })
 
 
 @login_required
@@ -225,45 +230,40 @@ def search_contacts(request):
 
 @login_required
 def chat_detail_view(request, chat_id):
-    """View a specific chat conversation"""
     chat = get_object_or_404(Chat, id=chat_id, participants=request.user)
-    
-    # Get or create chat participant
+
     chat_participant, _ = ChatParticipant.objects.get_or_create(
         chat=chat,
         user=request.user
     )
-    
-    # Get messages
-    messages = Message.objects.filter(
-        chat=chat
-    ).exclude(
-        deleted_for_everyone=True
-    ).exclude(
-        deletedmessage__user=request.user
-    ).select_related('sender').prefetch_related(
-        'receipts', 'reactions', 'reply_to'
-    ).order_by('created_at')
-    
-    # Mark messages as read
+
+    messages = (
+        Message.objects.filter(chat=chat)
+        .exclude(deleted_for_everyone=True)  # Messages deleted for all
+        .exclude(deleted_by_users__user=request.user)  # Messages deleted by THIS user
+        .select_related('sender')
+        .prefetch_related('receipts', 'reactions', 'reply_to')
+        .order_by('created_at')
+    )
+
+
     unread_receipts = MessageReceipt.objects.filter(
         message__chat=chat,
         user=request.user,
         status__in=['sent', 'delivered']
     ).exclude(message__sender=request.user)
-    
+
     unread_receipts.update(status='read', read_at=timezone.now())
-    
-    # Get other participants
+
     other_participants = chat.participants.exclude(id=request.user.id)
-    
+
     context = {
         'chat': chat,
         'messages': messages,
         'other_participants': other_participants,
         'chat_participant': chat_participant,
     }
-    
+
     return render(request, 'chat_detail.html', context)
 
 
