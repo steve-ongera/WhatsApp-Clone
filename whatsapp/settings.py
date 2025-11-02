@@ -61,8 +61,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'whatsapp.wsgi.application'
-#WSGI_APPLICATION = 'config.wsgi.application'
-ASGI_APPLICATION = 'config.asgi.application'
+ASGI_APPLICATION = 'whatsapp.asgi.application'
 
 
 # Database
