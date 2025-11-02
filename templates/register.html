@@ -1,0 +1,118 @@
+{% extends 'whatsapp_app/base.html' %}
+
+{% block title %}Register - WhatsApp{% endblock %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-green-100">
+    <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+        {% csrf_token %}
+        
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <i class="fab fa-whatsapp text-6xl wa-text-green"></i>
+            <h1 class="text-3xl font-bold text-gray-800 mt-4">Create Account</h1>
+            <p class="text-gray-600 mt-2">Join WhatsApp today</p>
+        </div>
+        
+        <!-- Error Message -->
+        <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
+        
+        <!-- Registration Form -->
+        <form id="register-form" class="space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">
+                        First Name
+                    </label>
+                    <input type="text" name="first_name" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="John">
+                </div>
+                
+                <div>
+                    <label class="block text-gray-700 text-sm font-bold mb-2">
+                        Last Name
+                    </label>
+                    <input type="text" name="last_name" required
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                        placeholder="Doe">
+                </div>
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    <i class="fas fa-user mr-2"></i>Username
+                </label>
+                <input type="text" name="username" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="johndoe">
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    <i class="fas fa-phone mr-2"></i>Phone Number
+                </label>
+                <input type="tel" name="phone_number" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="+254712345678">
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    <i class="fas fa-envelope mr-2"></i>Email
+                </label>
+                <input type="email" name="email" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="john@example.com">
+            </div>
+            
+            <div>
+                <label class="block text-gray-700 text-sm font-bold mb-2">
+                    <i class="fas fa-lock mr-2"></i>Password
+                </label>
+                <input type="password" name="password" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="Enter password">
+            </div>
+            
+            <button type="submit"
+                class="w-full wa-bg-green hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-200">
+                <i class="fas fa-user-plus mr-2"></i>Create Account
+            </button>
+        </form>
+        
+        <!-- Login Link -->
+        <div class="mt-6 text-center">
+            <p class="text-gray-600">
+                Already have an account?
+                <a href="{% url 'whatsapp_app:login' %}" class="wa-text-green hover:underline font-bold">
+                    Sign In
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#register-form').on('submit', function(e) {
+        e.preventDefault();
+        
+        $.ajax({
+            url: '{% url "whatsapp_app:register" %}',
+            method: 'POST',
+            data: $(this).serialize() + '&csrfmiddlewaretoken=' + csrftoken,
+            success: function(response) {
+                if (response.success) {
+                    window.location.href = response.redirect;
+                }
+            },
+            error: function(xhr) {
+                const error = xhr.responseJSON.error || 'An error occurred';
+                $('#error-message').removeClass('hidden').text(error);
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

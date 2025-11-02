@@ -1,0 +1,406 @@
+{% extends 'whatsapp_app/base.html' %}
+
+{% block title %}
+{% if chat.chat_type == 'group' %}{{ chat.name }}{% else %}Chat{% endif %} - WhatsApp
+{% endblock %}
+
+{% block content %}
+<div class="h-screen flex flex-col bg-gray-100">
+    {% csrf_token %}
+    
+    <!-- Chat Header -->
+    <div class="wa-bg-dark-green p-4 flex items-center justify-between shadow">
+        <div class="flex items-center space-x-3">
+            <a href="{% url 'whatsapp_app:chat_list' %}" class="text-white md:hidden">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            
+            <!-- Avatar -->
+            {% if chat.chat_type == 'group' %}
+                {% if chat.group_icon %}
+                <img src="{{ chat.group_icon.url }}" class="w-10 h-10 rounded-full">
+                {% else %}
+                <div class="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white">
+                    <i class="fas fa-users"></i>
+                </div>
+                {% endif %}
+            {% else %}
+                {% with other_user=other_participants|first %}
+                {% if other_user.profile_picture %}
+                <img src="{{ other_user.profile_picture.url }}" class="w-10 h-10 rounded-full">
+                {% else %}
+                <div class="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
+                    {{ other_user.first_name|first }}{{ other_user.last_name|first }}
+                </div>
+                {% endif %}
+                {% endwith %}
+            {% endif %}
+            
+            <div>
+                <h3 class="text-white font-semibold">
+                    {% if chat.chat_type == 'group' %}
+                        {{ chat.name }}
+                    {% else %}
+                        {% with other_user=other_participants|first %}
+                        {{ other_user.first_name }} {{ other_user.last_name }}
+                        {% endwith %}
+                    {% endif %}
+                </h3>
+                <p class="text-green-200 text-xs" id="user-status">
+                    {% if chat.chat_type == 'group' %}
+                        {{ chat.participants.count }} participants
+                    {% else %}
+                        {% with other_user=other_participants|first %}
+                        <span class="{% if other_user.is_online %}online-status{% endif %}">
+                            {% if other_user.is_online %}online{% else %}last seen {{ other_user.last_seen|timesince }} ago{% endif %}
+                        </span>
+                        {% endwith %}
+                    {% endif %}
+                </p>
+                <p class="text-green-200 text-xs hidden" id="typing-indicator">
+                    <span class="typing-indicator">
+                        <span>.</span><span>.</span><span>.</span>
+                    </span>
+                    typing...
+                </p>
+            </div>
+        </div>
+        
+        <div class="flex space-x-4 text-white">
+            <button id="video-call-btn" class="hover:bg-green-700 p-2 rounded-full">
+                <i class="fas fa-video"></i>
+            </button>
+            <button id="voice-call-btn" class="hover:bg-green-700 p-2 rounded-full">
+                <i class="fas fa-phone"></i>
+            </button>
+            <button id="chat-menu-btn" class="hover:bg-green-700 p-2 rounded-full">
+                <i class="fas fa-ellipsis-v"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Messages Container -->
+    <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide"
+         style="background-image: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZWNlNWRkIiBzdHJva2Utd2lkdGg9IjEiLz4KICAgIDwvcGF0dGVybj4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPgo8L3N2Zz4=');">
+        
+        {% for message in messages %}
+        <div class="flex {% if message.sender == user %}justify-end{% else %}justify-start{% endif %}"
+             data-message-id="{{ message.id }}">
+            <div class="max-w-xs md:max-w-md">
+                {% if chat.chat_type == 'group' and message.sender != user %}
+                <p class="text-xs text-gray-600 mb-1 ml-2">{{ message.sender.first_name }}</p>
+                {% endif %}
+                
+                <div class="{% if message.sender == user %}chat-message-sent{% else %}chat-message-received{% endif %} 
+                            rounded-lg px-4 py-2 shadow">
+                    
+                    {% if message.reply_to %}
+                    <div class="bg-gray-200 p-2 rounded mb-2 text-xs border-l-4 border-green-500">
+                        <p class="font-semibold">{{ message.reply_to.sender.first_name }}</p>
+                        <p class="text-gray-600 truncate">{{ message.reply_to.content }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if message.message_type == 'text' %}
+                        <p class="text-gray-800">{{ message.content }}</p>
+                    {% elif message.message_type == 'image' %}
+                        <img src="{{ message.media_file.url }}" class="rounded max-w-full mb-2">
+                        {% if message.content %}
+                        <p class="text-gray-800">{{ message.content }}</p>
+                        {% endif %}
+                    {% elif message.message_type == 'video' %}
+                        <video controls class="rounded max-w-full mb-2">
+                            <source src="{{ message.media_file.url }}">
+                        </video>
+                    {% elif message.message_type == 'audio' %}
+                        <audio controls class="w-full">
+                            <source src="{{ message.media_file.url }}">
+                        </audio>
+                    {% elif message.message_type == 'document' %}
+                        <a href="{{ message.media_file.url }}" download class="flex items-center space-x-2 text-blue-600">
+                            <i class="fas fa-file"></i>
+                            <span>{{ message.media_file.name }}</span>
+                        </a>
+                    {% elif message.message_type == 'location' %}
+                        <div class="text-blue-600">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <a href="https://maps.google.com/?q={{ message.latitude }},{{ message.longitude }}" 
+                               target="_blank">View Location</a>
+                        </div>
+                    {% endif %}
+                    
+                    <!-- Message Footer -->
+                    <div class="flex items-center justify-between mt-1 space-x-2">
+                        <div class="flex items-center space-x-2">
+                            {% if message.reactions.all %}
+                            <div class="flex space-x-1">
+                                {% for reaction in message.reactions.all %}
+                                <span class="text-xs">{{ reaction.emoji }}</span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex items-center space-x-1 text-xs text-gray-600">
+                            <span>{{ message.created_at|date:"H:i" }}</span>
+                            {% if message.sender == user %}
+                                {% if message.receipts.all|length > 0 %}
+                                    {% with receipt=message.receipts.first %}
+                                    {% if receipt.status == 'read' %}
+                                    <i class="fas fa-check-double text-blue-500"></i>
+                                    {% elif receipt.status == 'delivered' %}
+                                    <i class="fas fa-check-double text-gray-500"></i>
+                                    {% else %}
+                                    <i class="fas fa-check text-gray-500"></i>
+                                    {% endif %}
+                                    {% endwith %}
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Message Actions -->
+                <div class="flex justify-end mt-1 space-x-2 text-xs text-gray-600">
+                    <button onclick="replyToMessage('{{ message.id }}', '{{ message.content|escapejs }}')" 
+                            class="hover:text-green-600">
+                        <i class="fas fa-reply"></i>
+                    </button>
+                    <button onclick="reactToMessage('{{ message.id }}')" 
+                            class="hover:text-green-600">
+                        <i class="far fa-smile"></i>
+                    </button>
+                    {% if message.sender == user %}
+                    <button onclick="deleteMessage('{{ message.id }}')" 
+                            class="hover:text-red-600">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Message Input -->
+    <div class="bg-gray-100 p-4 border-t">
+        <div class="flex items-center space-x-3">
+            <button class="text-gray-600 hover:text-gray-800">
+                <i class="fas fa-smile text-2xl"></i>
+            </button>
+            
+            <button onclick="$('#file-input').click()" class="text-gray-600 hover:text-gray-800">
+                <i class="fas fa-paperclip text-2xl"></i>
+            </button>
+            <input type="file" id="file-input" class="hidden" accept="image/*,video/*,audio/*,.pdf,.doc,.docx">
+            
+            <div class="flex-1 relative">
+                <input type="text" id="message-input" placeholder="Type a message"
+                    class="w-full px-4 py-3 rounded-full bg-white border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <input type="hidden" id="reply-to-id">
+                <div id="reply-preview" class="hidden absolute bottom-full mb-2 left-0 right-0 bg-white border rounded-lg p-2 shadow-lg">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <p class="text-xs font-semibold text-green-600">Replying to</p>
+                            <p id="reply-preview-text" class="text-sm text-gray-600 truncate"></p>
+                        </div>
+                        <button onclick="cancelReply()" class="text-gray-600 hover:text-gray-800">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="send-btn" onclick="sendMessage()" 
+                class="wa-bg-green text-white p-3 rounded-full hover:bg-green-600">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+            
+            <button id="voice-btn" class="text-gray-600 hover:text-gray-800">
+                <i class="fas fa-microphone text-2xl"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+const chatId = '{{ chat.id }}';
+const currentUserId = {{ user.id }};
+let typingTimeout;
+
+// WebSocket connection
+const chatSocket = new WebSocket(
+    'ws://' + window.location.host + '/ws/chat/' + chatId + '/'
+);
+
+chatSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    
+    if (data.type === 'chat_message') {
+        addMessageToUI(data.message);
+        scrollToBottom();
+    } else if (data.type === 'typing_indicator') {
+        showTypingIndicator(data.user_name, data.is_typing);
+    } else if (data.type === 'user_status') {
+        updateUserStatus(data.user_id, data.is_online);
+    } else if (data.type === 'read_receipt') {
+        updateReadReceipt(data.message_id);
+    } else if (data.type === 'message_deleted') {
+        handleMessageDeleted(data.message_id, data.delete_for_everyone);
+    }
+};
+
+chatSocket.onclose = function(e) {
+    console.error('Chat socket closed unexpectedly');
+};
+
+// Send message
+function sendMessage() {
+    const input = $('#message-input');
+    const message = input.val().trim();
+    const replyToId = $('#reply-to-id').val();
+    
+    if (!message) return;
+    
+    chatSocket.send(JSON.stringify({
+        'type': 'chat_message',
+        'content': message,
+        'reply_to': replyToId || null
+    }));
+    
+    input.val('');
+    cancelReply();
+}
+
+// Enter key to send
+$('#message-input').keypress(function(e) {
+    if (e.which === 13) {
+        sendMessage();
+    }
+});
+
+// Typing indicator
+$('#message-input').on('input', function() {
+    chatSocket.send(JSON.stringify({
+        'type': 'typing',
+        'is_typing': true
+    }));
+    
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(function() {
+        chatSocket.send(JSON.stringify({
+            'type': 'typing',
+            'is_typing': false
+        }));
+    }, 1000);
+});
+
+function showTypingIndicator(userName, isTyping) {
+    if (isTyping) {
+        $('#typing-indicator').removeClass('hidden');
+        $('#user-status').addClass('hidden');
+    } else {
+        $('#typing-indicator').addClass('hidden');
+        $('#user-status').removeClass('hidden');
+    }
+}
+
+function addMessageToUI(message) {
+    const isOwn = message.sender_id === currentUserId;
+    const messageHtml = `
+        <div class="flex ${isOwn ? 'justify-end' : 'justify-start'}" data-message-id="${message.id}">
+            <div class="max-w-xs md:max-w-md">
+                <div class="${isOwn ? 'chat-message-sent' : 'chat-message-received'} rounded-lg px-4 py-2 shadow">
+                    <p class="text-gray-800">${message.content}</p>
+                    <div class="flex items-center justify-end mt-1 space-x-1 text-xs text-gray-600">
+                        <span>${new Date(message.created_at).toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}</span>
+                        ${isOwn ? '<i class="fas fa-check text-gray-500"></i>' : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    $('#messages-container').append(messageHtml);
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('messages-container');
+    container.scrollTop = container.scrollHeight;
+}
+
+function replyToMessage(messageId, content) {
+    $('#reply-to-id').val(messageId);
+    $('#reply-preview-text').text(content);
+    $('#reply-preview').removeClass('hidden');
+    $('#message-input').focus();
+}
+
+function cancelReply() {
+    $('#reply-to-id').val('');
+    $('#reply-preview').addClass('hidden');
+}
+
+function deleteMessage(messageId) {
+    if (confirm('Delete this message?')) {
+        chatSocket.send(JSON.stringify({
+            'type': 'delete_message',
+            'message_id': messageId,
+            'delete_for_everyone': confirm('Delete for everyone?')
+        }));
+    }
+}
+
+function handleMessageDeleted(messageId, deleteForEveryone) {
+    if (deleteForEveryone) {
+        $(`[data-message-id="${messageId}"]`).find('.text-gray-800').html('<i>This message was deleted</i>');
+    } else {
+        $(`[data-message-id="${messageId}"]`).remove();
+    }
+}
+
+function reactToMessage(messageId) {
+    const emoji = prompt('Enter emoji:');
+    if (emoji) {
+        $.ajax({
+            url: `/messages/${messageId}/react/`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ emoji: emoji }),
+            success: function() {
+                location.reload();
+            }
+        });
+    }
+}
+
+// Calls
+$('#voice-call-btn').click(function() {
+    initiateCall('voice');
+});
+
+$('#video-call-btn').click(function() {
+    initiateCall('video');
+});
+
+function initiateCall(callType) {
+    $.ajax({
+        url: '{% url "whatsapp_app:initiate_call" %}',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            receiver_id: {{ other_participants.first.id }},
+            call_type: callType
+        }),
+        success: function(response) {
+            alert(`${callType} call initiated!`);
+        }
+    });
+}
+
+// Scroll to bottom on load
+$(document).ready(function() {
+    scrollToBottom();
+});
+</script>
+{% endblock %}

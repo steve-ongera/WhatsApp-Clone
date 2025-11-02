@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+
+{% block title %}Chats - WhatsApp{% endblock %}
+
+{% block content %}
+<div class="h-screen flex bg-gray-100">
+    {% csrf_token %}
+    
+    <!-- Sidebar -->
+    <div class="w-full md:w-1/3 bg-white border-r border-gray-300 flex flex-col">
+        <!-- Header -->
+        <div class="wa-bg-dark-green p-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                {% if user.profile_picture %}
+                <img src="{{ user.profile_picture.url }}" class="w-10 h-10 rounded-full">
+                {% else %}
+                <div class="w-10 h-10 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
+                    {{ user.first_name|first }}{{ user.last_name|first }}
+                </div>
+                {% endif %}
+                <span class="text-white font-semibold">{{ user.first_name }} {{ user.last_name }}</span>
+            </div>
+            
+            <div class="flex space-x-4 text-white">
+                <button id="status-btn" class="hover:bg-green-700 p-2 rounded-full">
+                    <i class="fas fa-circle-notch"></i>
+                </button>
+                <button id="new-chat-btn" class="hover:bg-green-700 p-2 rounded-full">
+                    <i class="fas fa-comment-medical"></i>
+                </button>
+                <button id="menu-btn" class="hover:bg-green-700 p-2 rounded-full">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Search Bar -->
+        <div class="p-3 bg-white border-b">
+            <div class="relative">
+                <input type="text" id="search-chats" placeholder="Search or start new chat"
+                    class="w-full pl-12 pr-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                <i class="fas fa-search absolute left-4 top-3 text-gray-500"></i>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="flex border-b">
+            <button class="flex-1 py-3 wa-text-green border-b-2 border-green-500 font-semibold">
+                <i class="fas fa-comment-dots mr-2"></i>Chats
+            </button>
+            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'whatsapp_app:status_list' %}'">
+                <i class="fas fa-circle-notch mr-2"></i>Status
+            </button>
+            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'whatsapp_app:calls' %}'">
+                <i class="fas fa-phone mr-2"></i>Calls
+            </button>
+        </div>
+        
+        <!-- Chat List -->
+        <div class="flex-1 overflow-y-auto scrollbar-hide">
+            {% for chat in chats %}
+            <a href="{% url 'whatsapp_app:chat_detail' chat.id %}" 
+               class="flex items-center p-4 hover:bg-gray-50 border-b cursor-pointer {% if chat.id in pinned_chats %}bg-green-50{% endif %}">
+                <!-- Avatar -->
+                <div class="relative">
+                    {% if chat.chat_type == 'group' %}
+                        {% if chat.group_icon %}
+                        <img src="{{ chat.group_icon.url }}" class="w-12 h-12 rounded-full">
+                        {% else %}
+                        <div class="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        {% with other_user=chat.participants.all|first %}
+                        {% if other_user.profile_picture %}
+                        <img src="{{ other_user.profile_picture.url }}" class="w-12 h-12 rounded-full">
+                        {% else %}
+                        <div class="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
+                            {{ other_user.first_name|first }}{{ other_user.last_name|first }}
+                        </div>
+                        {% endif %}
+                        
+                        {% if other_user.is_online %}
+                        <span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+                        {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                </div>
+                
+                <!-- Chat Info -->
+                <div class="ml-4 flex-1">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-semibold text-gray-800">
+                            {% if chat.chat_type == 'group' %}
+                                {{ chat.name }}
+                            {% else %}
+                                {% with other_user=chat.participants.exclude|first %}
+                                {{ other_user.first_name }} {{ other_user.last_name }}
+                                {% endwith %}
+                            {% endif %}
+                        </h3>
+                        <span class="text-xs text-gray-500">
+                            {% with last_msg=chat.messages.first %}
+                            {% if last_msg %}
+                                {{ last_msg.created_at|timesince }} ago
+                            {% endif %}
+                            {% endwith %}
+                        </span>
+                    </div>
+                    
+                    <div class="flex justify-between items-center mt-1">
+                        <p class="text-sm text-gray-600 truncate">
+                            {% with last_msg=chat.messages.first %}
+                            {% if last_msg %}
+                                {% if last_msg.message_type == 'text' %}
+                                    {{ last_msg.content|truncatewords:5 }}
+                                {% else %}
+                                    <i class="fas fa-{% if last_msg.message_type == 'image' %}image{% elif last_msg.message_type == 'video' %}video{% else %}file{% endif %}"></i>
+                                    {{ last_msg.message_type|title }}
+                                {% endif %}
+                            {% else %}
+                                No messages yet
+                            {% endif %}
+                            {% endwith %}
+                        </p>
+                        
+                        {% if unread_counts|get:chat.id %}
+                        <span class="bg-green-500 text-white text-xs rounded-full px-2 py-1">
+                            {{ unread_counts|get:chat.id }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="text-center py-12 text-gray-500">
+                <i class="fas fa-comments text-5xl mb-4"></i>
+                <p>No chats yet</p>
+                <button onclick="$('#new-chat-btn').click()" class="mt-4 wa-bg-green text-white px-6 py-2 rounded-full">
+                    Start a Chat
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Empty State / Welcome Screen -->
+    <div class="hidden md:flex flex-1 flex-col items-center justify-center bg-gray-50">
+        <i class="fab fa-whatsapp text-9xl text-gray-300 mb-6"></i>
+        <h2 class="text-2xl font-semibold text-gray-600 mb-2">WhatsApp Web</h2>
+        <p class="text-gray-500 text-center max-w-md">
+            Send and receive messages without keeping your phone online.<br>
+            Use WhatsApp on up to 4 linked devices and 1 phone at the same time.
+        </p>
+    </div>
+</div>
+
+<!-- New Chat Modal -->
+<div id="new-chat-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg w-full max-w-md max-h-96 overflow-hidden">
+        <div class="p-4 bg-green-600 text-white flex justify-between items-center">
+            <h3 class="text-lg font-semibold">New Chat</h3>
+            <button onclick="$('#new-chat-modal').addClass('hidden')" class="text-white">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="p-4">
+            <input type="text" id="search-contacts" placeholder="Search contacts..."
+                class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+        </div>
+        
+        <div id="contacts-list" class="overflow-y-auto max-h-64">
+            <!-- Contacts will be loaded here via AJAX -->
+        </div>
+        
+        <div class="p-4 border-t">
+            <button onclick="window.location.href='{% url 'whatsapp_app:create_group_chat' %}'"
+                class="w-full wa-bg-green text-white py-2 rounded-lg hover:bg-green-600">
+                <i class="fas fa-users mr-2"></i>Create Group
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // New chat button
+    $('#new-chat-btn').click(function() {
+        $('#new-chat-modal').removeClass('hidden');
+        loadContacts();
+    });
+    
+    // Search contacts
+    let searchTimeout;
+    $('#search-contacts').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val();
+        
+        searchTimeout = setTimeout(function() {
+            if (query.length > 0) {
+                $.ajax({
+                    url: '{% url "whatsapp_app:search_contacts" %}',
+                    data: { q: query },
+                    success: function(response) {
+                        displayContacts(response.results);
+                    }
+                });
+            } else {
+                loadContacts();
+            }
+        }, 300);
+    });
+    
+    function loadContacts() {
+        $.ajax({
+            url: '{% url "whatsapp_app:search_contacts" %}',
+            data: { q: '' },
+            success: function(response) {
+                displayContacts(response.results);
+            }
+        });
+    }
+    
+    function displayContacts(contacts) {
+        const html = contacts.map(contact => `
+            <div class="p-4 hover:bg-gray-50 cursor-pointer border-b" 
+                 onclick="createPersonalChat(${contact.id})">
+                <div class="flex items-center">
+                    ${contact.profile_picture 
+                        ? `<img src="${contact.profile_picture}" class="w-12 h-12 rounded-full">`
+                        : `<div class="w-12 h-12 rounded-full bg-gray-400 flex items-center justify-center text-white font-bold">
+                            ${contact.name.charAt(0)}
+                           </div>`
+                    }
+                    <div class="ml-4">
+                        <h4 class="font-semibold">${contact.name}</h4>
+                        <p class="text-sm text-gray-600">${contact.about || ''}</p>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        
+        $('#contacts-list').html(html || '<p class="p-4 text-center text-gray-500">No contacts found</p>');
+    }
+});
+
+function createPersonalChat(userId) {
+    $.ajax({
+        url: '{% url "whatsapp_app:create_personal_chat" %}',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ user_id: userId }),
+        success: function(response) {
+            if (response.success) {
+                window.location.href = response.redirect;
+            }
+        },
+        error: function() {
+            alert('Failed to create chat');
+        }
+    });
+}
+
+// Real-time updates with WebSocket
+const notificationSocket = new WebSocket(
+    'ws://' + window.location.host + '/ws/notifications/'
+);
+
+notificationSocket.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+    if (data.type === 'notification') {
+        // Reload page or update chat list
+        location.reload();
+    }
+};
+</script>
+{% endblock %}
