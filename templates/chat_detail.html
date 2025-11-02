@@ -1,4 +1,4 @@
-{% extends 'whatsapp_app/base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}
 {% if chat.chat_type == 'group' %}{{ chat.name }}{% else %}Chat{% endif %} - WhatsApp
@@ -11,7 +11,7 @@
     <!-- Chat Header -->
     <div class="wa-bg-dark-green p-4 flex items-center justify-between shadow">
         <div class="flex items-center space-x-3">
-            <a href="{% url 'whatsapp_app:chat_list' %}" class="text-white md:hidden">
+            <a href="{% url 'chat_list' %}" class="text-white md:hidden">
                 <i class="fas fa-arrow-left"></i>
             </a>
             
@@ -385,7 +385,7 @@ $('#video-call-btn').click(function() {
 
 function initiateCall(callType) {
     $.ajax({
-        url: '{% url "whatsapp_app:initiate_call" %}',
+        url: '{% url "initiate_call" %}',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({

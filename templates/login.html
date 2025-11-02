@@ -1,4 +1,4 @@
-{% extends 'whatsapp_app/base.html' %}
+{% extends 'base.html' %}
 
 {% block title %}Login - WhatsApp{% endblock %}
 
@@ -47,7 +47,7 @@
         <div class="mt-6 text-center">
             <p class="text-gray-600">
                 Don't have an account?
-                <a href="{% url 'whatsapp_app:register' %}" class="wa-text-green hover:underline font-bold">
+                <a href="{% url 'register' %}" class="wa-text-green hover:underline font-bold">
                     Sign Up
                 </a>
             </p>
@@ -61,7 +61,7 @@ $(document).ready(function() {
         e.preventDefault();
         
         $.ajax({
-            url: '{% url "whatsapp_app:login" %}',
+            url: '{% url "login" %}',
             method: 'POST',
             data: $(this).serialize() + '&csrfmiddlewaretoken=' + csrftoken,
             success: function(response) {

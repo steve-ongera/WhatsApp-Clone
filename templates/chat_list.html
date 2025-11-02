@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load custom_filters %}
 
 {% block title %}Chats - WhatsApp{% endblock %}
 
@@ -48,10 +49,10 @@
             <button class="flex-1 py-3 wa-text-green border-b-2 border-green-500 font-semibold">
                 <i class="fas fa-comment-dots mr-2"></i>Chats
             </button>
-            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'whatsapp_app:status_list' %}'">
+            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'status_list' %}'">
                 <i class="fas fa-circle-notch mr-2"></i>Status
             </button>
-            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'whatsapp_app:calls' %}'">
+            <button class="flex-1 py-3 text-gray-600 hover:bg-gray-50" onclick="window.location.href='{% url 'calls' %}'">
                 <i class="fas fa-phone mr-2"></i>Calls
             </button>
         </div>
@@ -59,7 +60,7 @@
         <!-- Chat List -->
         <div class="flex-1 overflow-y-auto scrollbar-hide">
             {% for chat in chats %}
-            <a href="{% url 'whatsapp_app:chat_detail' chat.id %}" 
+            <a href="{% url 'chat_detail' chat.id %}" 
                class="flex items-center p-4 hover:bg-gray-50 border-b cursor-pointer {% if chat.id in pinned_chats %}bg-green-50{% endif %}">
                 <!-- Avatar -->
                 <div class="relative">
@@ -176,7 +177,7 @@
         </div>
         
         <div class="p-4 border-t">
-            <button onclick="window.location.href='{% url 'whatsapp_app:create_group_chat' %}'"
+            <button onclick="window.location.href='{% url 'create_group_chat' %}'"
                 class="w-full wa-bg-green text-white py-2 rounded-lg hover:bg-green-600">
                 <i class="fas fa-users mr-2"></i>Create Group
             </button>
@@ -201,7 +202,7 @@ $(document).ready(function() {
         searchTimeout = setTimeout(function() {
             if (query.length > 0) {
                 $.ajax({
-                    url: '{% url "whatsapp_app:search_contacts" %}',
+                    url: '{% url "search_contacts" %}',
                     data: { q: query },
                     success: function(response) {
                         displayContacts(response.results);
@@ -215,7 +216,7 @@ $(document).ready(function() {
     
     function loadContacts() {
         $.ajax({
-            url: '{% url "whatsapp_app:search_contacts" %}',
+            url: '{% url "search_contacts" %}',
             data: { q: '' },
             success: function(response) {
                 displayContacts(response.results);
@@ -248,7 +249,7 @@ $(document).ready(function() {
 
 function createPersonalChat(userId) {
     $.ajax({
-        url: '{% url "whatsapp_app:create_personal_chat" %}',
+        url: '{% url "create_personal_chat" %}',
         method: 'POST',
         contentType: 'application/json',
         data: JSON.stringify({ user_id: userId }),
